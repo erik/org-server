@@ -89,6 +89,7 @@ This is an alist of file -> mtime (So generated content can be cached)")
           (when (string= ext "org")
             (add-to-list 'org-server--org-files (cons path mtime))))))))
 
+;;;###autoload
 (defun org-server-init (directory)
   "Starts up a server for the given directory of org files"
   (interactive "D")
@@ -100,5 +101,7 @@ This is an alist of file -> mtime (So generated content can be cached)")
 
   (elnode-start 'org-server--org-handler :port org-server-port
                 :host org-server-host))
+
+(provide 'org-server)
 
 ;;; org-server.el ends here
