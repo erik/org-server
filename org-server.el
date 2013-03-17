@@ -47,21 +47,17 @@
   "Default host for the server"
   :group 'org-server)
 
-(defcustom org-server-layout-file "org-server-template.html"
-  "Template to use for the generated HTML.
-
-Files should be simple HTML, with two mustache style variables,
-{{{navigation}}} and {{{content}}} where the generated navigation bar and HTML
-generated from the Org file should go, respectively."
-  :group 'org-server)
-
 (defvar org-server--org-directory nil
   "Directory where we're looking for Org files")
 
-(defvar org-server--org-files '()
-  "Them files we're interested in.
+(defvar org-server--navlinks-html ""
+  "HTML for navigation bar, contains hierarchical list of files/directories
+generated from list of files and directories")
 
-This is an alist of file -> mtime (So generated content can be cached)")
+(defvar org-server--org-files-names '()
+  "List of org-mode files that we'll be serving up.
+
+This is an alist of file-path -> mtime (So generated content can be cached)")
 
 (defun org-server--org-handler (httpcon)
   (elnode-docroot-for org-server--org-directory
@@ -72,22 +68,34 @@ This is an alist of file -> mtime (So generated content can be cached)")
            (elnode-send-html httpcon org-html)))))
 
 (defun org-server--build-file-list (directory)
-  "Build up a list of org-mode files in the given directory."
-  (dolist (file/attr (directory-files-and-attributes directory))
-    (let* ((file  (first file/attr))
-           (mtime  (nth 5 file/attr))
-           (ext    (file-name-extension file))
-           (path   (expand-file-name file directory)))
+  "Build up a list of org-mode files in the given directory.
 
-      ;; Ignore dotfiles, ., .., and other such nonsense.
-      ;; TODO: This behavior should definitely be configurable.
-      (unless (string/--starts-with file ".")
+Returns an HTML string of the files/directory structure"
 
-        (if (file-directory-p path)
-            (org-server--build-file-list path)
+  (let ((html-nav-string "<ul>"))
+    (dolist (file/attr (directory-files-and-attributes directory))
+      (let* ((file  (first file/attr))
+             (mtime  (nth 5 file/attr))
+             (ext    (file-name-extension file))
+             (path   (expand-file-name file directory)))
 
-          (when (string= ext "org")
-            (add-to-list 'org-server--org-files (cons path mtime))))))))
+        ;; Ignore dotfiles, ., .., and other such nonsense.
+        ;; TODO: This behavior should definitely be configurable.
+        (unless (string/--starts-with file ".")
+
+          (if (file-directory-p path)
+              (progn
+                (setq html-nav-string
+                      (concat html-nav-string
+                              (org-server--build-file-list path))))
+
+            (when (string= ext "org")
+              (setq html-nav-string (concat html-nav-string
+                                            "<li>" file "</li>"))
+              (add-to-list 'org-server--org-file-names (cons path mtime)))))))
+
+    ;; Return HTML nav string
+    (concat html-nav-string "</ul>")))
 
 ;;;###autoload
 (defun org-server-init (directory)
@@ -95,9 +103,11 @@ This is an alist of file -> mtime (So generated content can be cached)")
   (interactive "D")
 
   (setq org-server--org-directory directory)
-  (setq org-server--org-files '())
+  (setq org-server--org-file-names '())
+  (setq org-server--navlinks-html "")
 
-  (org-server--build-file-list directory)
+  (setq org-server--navlinks-html
+        (org-server--build-file-list directory))
 
   (elnode-start 'org-server--org-handler :port org-server-port
                 :host org-server-host))
