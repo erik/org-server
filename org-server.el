@@ -54,25 +54,46 @@
   "HTML for navigation bar, contains hierarchical list of files/directories
 generated from list of files and directories")
 
-(defvar org-server--org-files-names '()
+(defvar org-server--org-file-names '()
   "List of org-mode files that we'll be serving up.
 
 This is an alist of file-path -> mtime (So generated content can be cached)")
 
+(defun org-server--send-index (httpcon)
+  (elnode-http-start httpcon 200 '("Content-type" . "text/html"))
+  (elnode-http-return httpcon org-server--navlinks-html))
+
+(defun org-server--send-file (httpcon path)
+  (elnode-http-start httpcon 200 '("Content-type" . "text/html"))
+  (elnode-http-return httpcon "<html><b>PRETEND THIS IS THE PATH</b></html>"))
+
+(defun org-server--find-file (path)
+  (let ((expanded (expand-file-name path org-server--org-directory)))
+    (print expanded)
+
+    (assoc expanded org-server--org-file-names)))
+
 (defun org-server--org-handler (httpcon)
-  (elnode-docroot-for org-server--org-directory
-    with org-file
-    on httpcon
-    do (with-current-buffer (find-file-noselect org-file)
-         (let ((org-html (org-export-as-html 3 nil nil 'string)))
-           (elnode-send-html httpcon org-html)))))
+  "Main handler for org-server"
+
+  ;; We take the substring to chop off the leading /
+  (let* ((path (substring
+                (elnode-http-pathinfo httpcon) 1)))
+
+    (if (equal path "")
+        (org-server--send-index httpcon)
+
+      (let ((file (org-server--find-file path)))
+        (if file
+            (org-server--send-file httpcon file)
+            (elnode-send-404 httpcon (substring path 1)))))))
 
 (defun org-server--build-file-list (directory)
   "Build up a list of org-mode files in the given directory.
 
 Returns an HTML string of the files/directory structure"
 
-  (let ((html-nav-string "<ul>"))
+  (let ((html-nav-string ""))
     (dolist (file/attr (directory-files-and-attributes directory))
       (let* ((file  (first file/attr))
              (mtime  (nth 5 file/attr))
@@ -95,9 +116,14 @@ Returns an HTML string of the files/directory structure"
               (add-to-list 'org-server--org-file-names (cons path mtime)))))))
 
     ;; Return HTML nav string
-    (concat html-nav-string "</ul>")))
+    (if (equal html-nav-string "")
+        ""
 
-;;;###autoload
+      ;; TODO: This includes the absolute path of the directory,
+      ;;       which is definitely not what we want.
+      (concat "<li>" directory "</li>"
+              "<ul>" html-nav-string "</ul>"))))
+
 (defun org-server-init (directory)
   "Starts up a server for the given directory of org files"
   (interactive "D")
@@ -107,7 +133,9 @@ Returns an HTML string of the files/directory structure"
   (setq org-server--navlinks-html "")
 
   (setq org-server--navlinks-html
-        (org-server--build-file-list directory))
+        (concat  "<ul>"
+                 (org-server--build-file-list directory)
+                 "</ul>"))
 
   (elnode-start 'org-server--org-handler :port org-server-port
                 :host org-server-host))
