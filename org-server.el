@@ -118,11 +118,13 @@ Returns an HTML string of the files/directory structure"
     ;; Return HTML nav string
     (if (equal html-nav-string "")
         ""
+      (let ((basename (file-name-nondirectory directory)))
+        (concat "<li>" (if (equal basename "")
+                           "Files"
+                         basename)
+                "</li>"
 
-      ;; TODO: This includes the absolute path of the directory,
-      ;;       which is definitely not what we want.
-      (concat "<li>" directory "</li>"
-              "<ul>" html-nav-string "</ul>"))))
+                "<ul>" html-nav-string "</ul>")))))
 
 (defun org-server-init (directory)
   "Starts up a server for the given directory of org files"
