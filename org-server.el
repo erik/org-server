@@ -25,15 +25,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require 'elnode)
+(require 's)
 
 ;; Some helper functions
-
-;; Ripped from http://emacswiki.org/emacs/ElispCookbook#toc4
-(defun string/--starts-with (s arg)
-  "returns non-nil if string S starts with ARG.  Else nil."
-  (cond ((>= (length s) (length arg))
-         (string-equal (substring s 0 (length arg)) arg))
-        (t nil)))
 
 (defgroup org-server nil
   "A server for a directory of org-files"
@@ -102,7 +96,7 @@ Returns an HTML string of the files/directory structure"
 
         ;; Ignore dotfiles, ., .., and other such nonsense.
         ;; TODO: This behavior should definitely be configurable.
-        (unless (string/--starts-with file ".")
+        (unless (s-starts-with? "." file)
 
           (if (file-directory-p path)
               (progn
