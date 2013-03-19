@@ -115,7 +115,7 @@ TODO: This should cache already generated files, maybe."
             (elnode-send-html httpcon (org-server--html-templater
                                        org-server--navlinks-html
                                        html))
-            (elnode-send-404 httpcon (substring path 1)))))))
+            (elnode-send-404 httpcon path))))))
 
 (defun org-server--build-file-list (directory)
   "Build up a list of org-mode files in the given relative directory.
