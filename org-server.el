@@ -97,7 +97,8 @@ template."
   "Build the HTML for a given org file
 
 TODO: This should cache already generated files, maybe."
-  (with-current-buffer (find-file-noselect (car path))
+  (with-temp-buffer
+    (insert-file-contents (car path))
     (condition-case err
         (org-export-as-html 3 nil nil 'string t)
 
