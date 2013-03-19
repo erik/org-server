@@ -1,2 +1,35 @@
 * org-server
-Serves up tasty HTML.
+
+  An elnode elnode handler to automatically htmlize a given directory of
+  org-mode files
+
+  It's in its very early stages at this point. It technically meets the
+  description I just gave, but is very limited in customization
+  possibilities or features beyond the basic.
+
+  Check back soon.
+
+** Why?
+
+   Because I take all my class notes in org-mode and I'm way too lazy to
+   set up an official org-mode publish-to-html thing each time I want to
+   make a change. Also Github's org-mode markup leaves much to be
+   desired and I wanted an easy way to review my notes without having my
+   files butchered.
+
+** Usage
+
+   This will be put up on Marmalade or Melpa or wherever once it gets to
+   the point that it actually deserves to be. For now, you'll need to
+   have elnode and s.el installed, after that you can just =(require
+   'org-server)=. Customize =org-server-port= and =org-server-host= if
+   you want to, and then run =M-x org-server-init=, which will ask you
+   for a directory to serve up.
+
+   It's pretty dumb about picking things to serve. Currently, it will
+   just loop through all child directories of wherever you picked, adding
+   =*.org= to the files. Sometime soon I'll add dynamic updating to this
+   list.
+
+   Running on =~/= is probably not a great idea. It will hit the maximum
+   recursion depth pretty quickly and error out.
