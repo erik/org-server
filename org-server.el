@@ -27,8 +27,6 @@
 (require 'elnode)
 (require 's)
 
-;; Some helper functions
-
 (defgroup org-server nil
   "A server for a directory of org-files"
   :group 'applications)
@@ -53,13 +51,47 @@ generated from list of files and directories")
 
 This is an alist of file-path -> mtime (So generated content can be cached)")
 
-(defun org-server--send-index (httpcon)
-  (elnode-http-start httpcon 200 '("Content-type" . "text/html"))
-  (elnode-http-return httpcon org-server--navlinks-html))
+(defvar org-server--html-template "
+<!doctype html>
+<html>
+  <head>
+    <title>org-server</title>
+  </head>
+  <body>
+    <div style=\"display:inline-block; float:left; max-width:20%;\" id=\"navigation\">
+      {{{navigation}}}
+    </div>
 
-(defun org-server--send-file (httpcon path)
-  (elnode-http-start httpcon 200 '("Content-type" . "text/html"))
-  (elnode-http-return httpcon "<html><b>PRETEND THIS IS THE PATH</b></html>"))
+    <div style=\"display:inline-block; float:left; padding-left: 20px; min-width: 70%; max-width: 75%;\" id=\"org-file\">
+      {{{body}}}
+    </div>
+  </body>
+</html>
+"
+
+  "Template for pages sent to the client")
+
+(defun org-server--html-templater (navbar-html body-html)
+  "Build the final HTML for the page using the `org-server--html-template
+template."
+  (let* ((html (s-replace "{{{navigation}}}" navbar-html
+                          org-server--html-template))
+         (html (s-replace "{{{body}}}" body-html html)))
+    html))
+
+(defun org-server--send-index (httpcon)
+  (elnode-send-html httpcon (org-server--html-templater
+                             org-server--navlinks-html
+                             "<h1>org-server.el</h1>")))
+
+(defun org-server--html-for-file (path)
+  "Build the HTML for a given org file
+
+TODO: This should cache already generated files, maybe."
+  (with-current-buffer (find-file-noselect (car path))
+    (condition-case err
+        (org-export-as-html 3 nil nil 'string t)
+      (error (format "<h1>%s</h1>" (error-message-string err))))))
 
 (defun org-server--find-file (path)
   (let ((expanded (expand-file-name path org-server--org-directory)))
@@ -77,48 +109,53 @@ This is an alist of file-path -> mtime (So generated content can be cached)")
     (if (equal path "")
         (org-server--send-index httpcon)
 
-      (let ((file (org-server--find-file path)))
+      (let* ((file (org-server--find-file path))
+             (html (and file (org-server--html-for-file file))))
         (if file
-            (org-server--send-file httpcon file)
+            (elnode-send-html httpcon (org-server--html-templater
+                                       org-server--navlinks-html
+                                       html))
             (elnode-send-404 httpcon (substring path 1)))))))
 
 (defun org-server--build-file-list (directory)
-  "Build up a list of org-mode files in the given directory.
+  "Build up a list of org-mode files in the given relative directory.
 
 Returns an HTML string of the files/directory structure"
 
-  (let ((html-nav-string ""))
-    (dolist (file/attr (directory-files-and-attributes directory))
+  (let ((html-nav-string "")
+        (absolute-dir (expand-file-name directory org-server--org-directory)))
+    (dolist (file/attr (directory-files-and-attributes absolute-dir))
       (let* ((file  (first file/attr))
              (mtime  (nth 5 file/attr))
              (ext    (file-name-extension file))
-             (path   (expand-file-name file directory)))
+             (path   (expand-file-name file absolute-dir))
+             (rel-dir (format "%s/%s" directory file)))
 
         ;; Ignore dotfiles, ., .., and other such nonsense.
         ;; TODO: This behavior should definitely be configurable.
         (unless (s-starts-with? "." file)
-
           (if (file-directory-p path)
               (progn
                 (setq html-nav-string
                       (concat html-nav-string
-                              (org-server--build-file-list path))))
+                              (org-server--build-file-list rel-dir))))
 
             (when (string= ext "org")
-              (setq html-nav-string (concat html-nav-string
-                                            "<li>" file "</li>"))
+              (setq html-nav-string
+                    (concat html-nav-string
+                            (format "<li><a href=\"/%s\">%s</a></li>"
+                                    rel-dir file)))
               (add-to-list 'org-server--org-file-names (cons path mtime)))))))
 
     ;; Return HTML nav string
-    (if (equal html-nav-string "")
-        ""
-      (let ((basename (file-name-nondirectory directory)))
-        (concat "<li>" (if (equal basename "")
-                           "Files"
-                         basename)
-                "</li>"
 
-                "<ul>" html-nav-string "</ul>")))))
+    (let ((basename (file-name-nondirectory directory)))
+      (cond
+       ((equal html-nav-string "") "")
+       ((equal basename ".") html-nav-string)
+       (t (concat "<li>" basename "</li>"
+                  "<ul style=\"margin-left: 0; padding-left: 1.5em;\">"
+                  html-nav-string "</ul>"))))))
 
 (defun org-server-init (directory)
   "Starts up a server for the given directory of org files"
@@ -129,9 +166,9 @@ Returns an HTML string of the files/directory structure"
   (setq org-server--navlinks-html "")
 
   (setq org-server--navlinks-html
-        (concat  "<ul>"
-                 (org-server--build-file-list directory)
-                 "</ul>"))
+        (concat "<ul style=\"margin-left: 0; padding-left: 0;\">"
+                (org-server--build-file-list ".")
+                "</ul>"))
 
   (elnode-start 'org-server--org-handler :port org-server-port
                 :host org-server-host))
