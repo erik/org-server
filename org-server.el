@@ -100,8 +100,26 @@ TODO: This should cache already generated files, maybe."
   (with-current-buffer (find-file-noselect (car path))
     (condition-case err
         (org-export-as-html 3 nil nil 'string t)
-      (error (format "<h1>Error while generating HTML:</h1><p>%s</p>"
-                     (error-message-string err))))))
+
+      ;; On error, report the error, and return plaintext representation
+      ;; of buffer.
+      (error (format
+              "<h3>Error while generating HTML:</h3>
+               <p>%s</p>
+               <pre>%s</pre>"
+
+              ;; HTML-escape error message
+              (with-temp-buffer
+                (insert (error-message-string err))
+                (sgml-quote (point-min) (point-max))
+                (buffer-string))
+
+              ;; Return an HTML-escaped version of the org plaintext
+              (let ((plain-text (buffer-string)))
+                (with-temp-buffer
+                  (insert plain-text)
+                  (sgml-quote (point-min) (point-max))
+                  (buffer-string))))))))
 
 (defun org-server--find-file (path)
   (let ((expanded (expand-file-name path org-server--org-directory)))
