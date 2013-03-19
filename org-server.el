@@ -38,7 +38,7 @@
   :group 'applications)
 
 (defcustom org-server-port 8765
-  "Default port to server from"
+  "Default port to serve from"
   :group 'org-server)
 
 (defcustom org-server-host "localhost"
@@ -46,16 +46,19 @@
   :group 'org-server)
 
 (defvar org-server--org-directory nil
-  "Directory where we're looking for Org files")
+  "Directory where we're looking for Org files.")
 
 (defvar org-server--navlinks-html ""
-  "HTML for navigation bar, contains hierarchical list of files/directories
+  "HTML string for navigation bar, contains hierarchical list of files/directories
 generated from list of files and directories")
 
 (defvar org-server--org-file-names '()
   "List of org-mode files that we'll be serving up.
 
 This is an alist of file-path -> mtime (So generated content can be cached)")
+
+(defvar org-server--active? nil
+  "Whether or not we have an instance of org-server running already.")
 
 (defvar org-server--html-template "
 <!doctype html>
@@ -75,10 +78,10 @@ This is an alist of file-path -> mtime (So generated content can be cached)")
 </html>
 "
 
-  "Template for pages sent to the client")
+  "Template string for pages sent to the client.")
 
 (defun org-server--html-templater (navbar-html body-html)
-  "Build the final HTML for the page using the `org-server--html-template
+  "Build the final HTML for the page using the `org-server--html-template'
 template."
   (let* ((html (s-replace "{{{navigation}}}" navbar-html
                           org-server--html-template))
@@ -164,21 +167,41 @@ Returns an HTML string of the files/directory structure"
                   "<ul style=\"margin-left: 0; padding-left: 1.5em;\">"
                   html-nav-string "</ul>"))))))
 
-(defun org-server-init (directory)
+(defun org-server-start (directory)
   "Starts up a server for the given directory of org files"
   (interactive "D")
 
-  (setq org-server--org-directory directory)
-  (setq org-server--org-file-names '())
-  (setq org-server--navlinks-html "")
+  ;; Either kill the active server or bail out if something's running
+  (if (not (org-server-stop))
+    (message "Cannot have multiple servers at once"))
 
-  (setq org-server--navlinks-html
-        (concat "<ul style=\"margin-left: 0; padding-left: 0;\">"
-                (org-server--build-file-list ".")
-                "</ul>"))
+  (progn
+    (setq org-server--org-directory directory)
+    (setq org-server--org-file-names '())
+    (setq org-server--active? t)
 
-  (elnode-start 'org-server--org-handler :port org-server-port
-                :host org-server-host))
+    (setq org-server--navlinks-html
+          (concat "<ul style=\"margin-left: 0; padding-left: 0;\">"
+                  (org-server--build-file-list ".")
+                  "</ul>"))
+
+    (elnode-start 'org-server--org-handler :port org-server-port
+                  :host org-server-host)
+
+    (message "org-server started on port %d" org-server-port)))
+
+(defun org-server-stop ()
+  "Stops the running org-server."
+  (interactive)
+
+  (if (not org-server--active?)
+      (message "org-server is not running")
+
+    (when (y-or-n-p "Stop running org-server?")
+      (elnode-stop org-server-port)
+      (setq org-server--active? nil)))
+
+  org-server--active?)
 
 (provide 'org-server)
 
