@@ -7,7 +7,7 @@
 ;; Version: 0.0.1
 ;; Created: 13th March 2013
 ;; Keywords: http, org
-;; Package-Requires: ((elnode "0.9.9.6.7"))
+;; Package-Requires: ((elnode "0.9.9.6.7") (s "1.3.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -23,6 +23,12 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; elnode handler to automatically htmlize a given directory of org-mode files
+;;
+;; Source available on github at https://github.com/boredomist/org-server
 
 (require 'elnode)
 (require 's)
@@ -62,7 +68,7 @@ This is an alist of file-path -> mtime (So generated content can be cached)")
       {{{navigation}}}
     </div>
 
-    <div style=\"display:inline-block; float:left; padding-left: 20px; min-width: 70%; max-width: 75%;\" id=\"org-file\">
+    <div style=\"display:inline-block; float:left; padding-left: 20px; max-width: 75%;\" id=\"org-file\">
       {{{body}}}
     </div>
   </body>
@@ -91,7 +97,8 @@ TODO: This should cache already generated files, maybe."
   (with-current-buffer (find-file-noselect (car path))
     (condition-case err
         (org-export-as-html 3 nil nil 'string t)
-      (error (format "<h1>%s</h1>" (error-message-string err))))))
+      (error (format "<h1>Error while generating HTML:</h1><p>%s</p>"
+                     (error-message-string err))))))
 
 (defun org-server--find-file (path)
   (let ((expanded (expand-file-name path org-server--org-directory)))
