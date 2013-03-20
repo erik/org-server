@@ -23,8 +23,10 @@
    the point that it actually deserves to be. For now, you'll need to
    have elnode and s.el installed, after that you can just =(require
    'org-server)=. Customize =org-server-port= and =org-server-host= if
-   you want to, and then run =M-x org-server-init=, which will ask you
+   you want to, and then run =M-x org-server-start=, which will ask you
    for a directory to serve up.
+
+   =M-x org-server-stop= to shut down the handler.
 
    It's pretty dumb about picking things to serve. Currently, it will
    just loop through all child directories of wherever you picked, adding
