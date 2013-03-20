@@ -200,6 +200,22 @@ Returns an HTML string of the files/directory structure"
                   "<ul style=\"margin-left: 0; padding-left: 1.5em;\">"
                   html-nav-string "</ul>"))))))
 
+(defun org-server-refresh ()
+  "Refresh listing of directories for the currently running server."
+  (interactive)
+  (if (and (not org-server--active?)
+             (y-or-n-p "Server not running. Start one now?"))
+      (call-interactively 'org-server-start))
+
+  (progn
+    (setq org-server--org-file-names '())
+    (setq org-server--navlinks-html
+          (concat "<ul style=\"margin-left: 0; padding-left: 0;\">"
+                  (org-server--build-file-list ".")
+                  "</ul>"))
+
+    (message "File listing updated")))
+
 (defun org-server-start (directory)
   "Starts up a server for the given directory of org files"
   (interactive "D")
