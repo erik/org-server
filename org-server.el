@@ -45,6 +45,16 @@
   "Default host for the server"
   :group 'org-server)
 
+(defcustom org-server-css "
+.left { display: inline-block; float: left; }
+#navigation { max-width: 20%; }
+#org-file { padding-left: 20px; max-width: 75%; }
+"
+  "CSS to apply to each returned page.
+
+Default is very minimal, feel free to go crazy here. It's dumped directly into
+a <style> element in the header, so keep that in mind.")
+
 (defvar org-server--org-directory nil
   "Directory where we're looking for Org files.")
 
@@ -65,13 +75,16 @@ This is an alist of file-path -> mtime (So generated content can be cached)")
 <html>
   <head>
     <title>org-server</title>
+    <style type=\"text/css\">
+       {{{css}}}
+    </style>
   </head>
   <body>
-    <div style=\"display:inline-block; float:left; max-width:20%;\" id=\"navigation\">
+    <div class=\"left\" id=\"navigation\">
       {{{navigation}}}
     </div>
 
-    <div style=\"display:inline-block; float:left; padding-left: 20px; max-width: 75%;\" id=\"org-file\">
+    <div class=\"left\" id=\"org-file\">
       {{{body}}}
     </div>
   </body>
@@ -83,10 +96,11 @@ This is an alist of file-path -> mtime (So generated content can be cached)")
 (defun org-server--html-templater (navbar-html body-html)
   "Build the final HTML for the page using the `org-server--html-template'
 template."
-  (let* ((html (s-replace "{{{navigation}}}" navbar-html
-                          org-server--html-template))
-         (html (s-replace "{{{body}}}" body-html html)))
-    html))
+
+  (s-replace "{{{css}}}" org-server-css
+             (s-replace "{{{body}}}" body-html
+                        (s-replace "{{{navigation}}}" navbar-html
+                                   org-server--html-template))))
 
 (defun org-server--send-index (httpcon)
   (elnode-send-html httpcon (org-server--html-templater
